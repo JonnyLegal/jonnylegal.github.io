@@ -536,13 +536,13 @@
     </label>
 
     <label>
-      Groove
-      <select id="groove">
+      Rhythm
+      <select id="rhythm">
         <option value="straight">Straight</option>
-        <option value="stab">Stab</option>
-        <option value="halfBar">Half Bar</option>
-        <option value="offbeat">Offbeat</option>
-        <option value="pump">Pump</option>
+        <option value="longShort">Long–Short</option>
+        <option value="syncopated">Syncopated</option>
+        <option value="doubleTime">Double Time</option>
+        <option value="halfTime">Half Time</option>
       </select>
     </label>
   </div>
@@ -1062,34 +1062,88 @@ function playChordSound(pitches, instrument, duration, startTime) {
   }
 }
 
-// ─── Grooves ─────────────────────────────────────────────────────────────────
-// Each groove defines one or more sound slots per bar.
-// slot: { t: startOffsetWithinBar (seconds), dur: playDuration (seconds) }
+// ─── Rhythms ──────────────────────────────────────────────────────────────────
+// Each rhythm defines how chord events are spread across the bars.
+// events(numChords, numBars, barDur) → [{chordIdx, start, dur}]
+//   chordIdx : which chord from currentProgression to play
+//   start    : seconds from playback start
+//   dur      : how long the chord sounds
 
-const GROOVES = {
+const RHYTHMS = {
   straight: {
     name: 'Straight',
-    slots(barDur)      { return [{ t: 0, dur: barDur * 0.98 }]; },
+    desc: '1 chord per bar — one change per bar',
+    events(numChords, numBars, barDur) {
+      return Array.from({ length: numChords }, (_, i) => ({
+        chordIdx: i,
+        start: i * barDur,
+        dur: barDur * 0.97,
+      }));
+    },
   },
-  stab: {
-    name: 'Stab',
-    slots(barDur)      { return [{ t: 0, dur: barDur * 0.18 }]; },
+
+  longShort: {
+    name: 'Long–Short',
+    desc: 'Alternating 1.5-bar and 0.5-bar durations — common in house & techno',
+    events(numChords, numBars, barDur) {
+      const out = [];
+      let pos = 0;
+      for (let i = 0; i < numChords; i++) {
+        const dur = i % 2 === 0 ? barDur * 1.5 : barDur * 0.5;
+        out.push({ chordIdx: i, start: pos, dur: dur * 0.97 });
+        pos += dur;
+      }
+      return out;
+    },
   },
-  halfBar: {
-    name: 'Half Bar',
-    slots(barDur)      { return [{ t: 0, dur: barDur * 0.46 }]; },
+
+  syncopated: {
+    name: 'Syncopated',
+    desc: '3+3+2 clave-inspired pattern — chords cross bar lines',
+    events(numChords, numBars, barDur) {
+      // 3+3+2 beats per cycle (8 beats = 2 bars), repeating to fill numBars
+      const beatDur = barDur / 4;
+      const pattern = [3, 3, 2];
+      const totalBeats = numBars * 4;
+      const out = [];
+      let beat = 0, chordIdx = 0, patIdx = 0;
+      while (beat < totalBeats - 0.01) {
+        const wantBeats = pattern[patIdx % pattern.length];
+        const actualBeats = Math.min(wantBeats, totalBeats - beat);
+        out.push({ chordIdx: chordIdx % numChords, start: beat * beatDur, dur: actualBeats * beatDur * 0.96 });
+        beat += actualBeats;
+        chordIdx++;
+        patIdx++;
+      }
+      return out;
+    },
   },
-  offbeat: {
-    name: 'Offbeat',
-    // chord enters on beat 2 — creates a syncopated push feel
-    slots(barDur)      { return [{ t: barDur * 0.25, dur: barDur * 0.70 }]; },
+
+  doubleTime: {
+    name: 'Double Time',
+    desc: 'Chord changes every half bar — twice as many changes, rapid momentum',
+    events(numChords, numBars, barDur) {
+      const half = barDur * 0.5;
+      const totalEvents = numBars * 2;
+      return Array.from({ length: totalEvents }, (_, i) => ({
+        chordIdx: i % numChords,
+        start: i * half,
+        dur: half * 0.94,
+      }));
+    },
   },
-  pump: {
-    name: 'Pump',
-    // two hits per bar: beat 1 and beat 3
-    slots(barDur)      {
-      const h = barDur * 0.5;
-      return [{ t: 0, dur: h * 0.84 }, { t: h, dur: h * 0.84 }];
+
+  halfTime: {
+    name: 'Half Time',
+    desc: 'Each chord stretches over 2 bars — spacious, evolving feel',
+    events(numChords, numBars, barDur) {
+      const twoBar = barDur * 2;
+      const totalEvents = Math.floor(numBars / 2);
+      return Array.from({ length: totalEvents }, (_, i) => ({
+        chordIdx: i % numChords,
+        start: i * twoBar,
+        dur: twoBar * 0.97,
+      }));
     },
   },
 };
@@ -1209,6 +1263,17 @@ function stopPlayback() {
   playbackTimeouts.forEach(t => clearTimeout(t));
   playbackTimeouts = [];
   isPlaying = false;
+
+  // Kill all active audio instantly by muting the fx bus,
+  // then restore it 50ms later so the next play works cleanly.
+  if (fxBus && audioCtx) {
+    fxBus.gain.cancelScheduledValues(audioCtx.currentTime);
+    fxBus.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+    setTimeout(() => {
+      if (fxBus) fxBus.gain.setValueAtTime(1.0, audioCtx.currentTime);
+    }, 50);
+  }
+
   clearHighlights();
   clearPiano();
   document.getElementById('progressFill').style.width = '0%';
@@ -1228,29 +1293,34 @@ function playProgression() {
 
   const bpm        = parseInt(val('tempo'), 10);
   const secPerBeat = 60 / bpm;
-  const barDur     = secPerBeat * 4;          // one bar = 4 beats
-  const totalDur   = barDur * currentProgression.length;
+  const barDur     = secPerBeat * 4;
+  const numBars    = parseInt(val('progLength'), 10);
+  const totalDur   = barDur * numBars;
   const instrument = val('instrument');
-  const groove     = GROOVES[val('groove')] || GROOVES.straight;
+  const rhythm     = RHYTHMS[val('rhythm')] || RHYTHMS.straight;
   const ctx        = getCtx();
 
-  currentProgression.forEach((chord, idx) => {
-    const barStart = idx * barDur;
+  const events = rhythm.events(currentProgression.length, numBars, barDur);
 
-    // Schedule each groove slot for this chord
-    groove.slots(barDur, idx).forEach(slot => {
-      const audioStart = ctx.currentTime + barStart + slot.t;
-      playChordSound(chord.pitches, instrument, slot.dur, audioStart);
-    });
+  // Track which chord was last highlighted to avoid re-lighting same chord
+  let lastHighlighted = -1;
 
-    // UI highlight fires at bar start
+  events.forEach(ev => {
+    const chord = currentProgression[ev.chordIdx];
+    // Schedule audio
+    playChordSound(chord.pitches, instrument, ev.dur, ctx.currentTime + ev.start);
+
+    // Schedule UI: highlight when this event starts
     const t = setTimeout(() => {
-      highlightCard(idx);
-      lightPiano(chord.noteNames, chord.chordRootName);
+      if (ev.chordIdx !== lastHighlighted) {
+        highlightCard(ev.chordIdx);
+        lightPiano(chord.noteNames, chord.chordRootName);
+        lastHighlighted = ev.chordIdx;
+      }
       setStatus(`Playing: ${chord.chordRootName}${chord.quality} (${chord.label})`);
       document.getElementById('progressFill').style.width =
-        (((idx + 1) / currentProgression.length) * 100) + '%';
-    }, barStart * 1000);
+        ((ev.start / totalDur) * 100) + '%';
+    }, ev.start * 1000);
     playbackTimeouts.push(t);
   });
 
