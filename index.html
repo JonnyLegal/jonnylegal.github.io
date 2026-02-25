@@ -362,6 +362,37 @@
       padding: 1rem 0;
       grid-column: 1/-1;
     }
+
+    /* Genre description */
+    .genre-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      background: var(--surface2);
+      border-radius: 8px;
+      border-left: 3px solid var(--accent);
+    }
+
+    .genre-desc strong { color: var(--accent2); }
+
+    .genre-tags {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-top: 0.4rem;
+    }
+
+    .genre-tag {
+      background: rgba(124,106,247,0.15);
+      border: 1px solid rgba(124,106,247,0.3);
+      border-radius: 12px;
+      padding: 0.15rem 0.55rem;
+      font-size: 0.68rem;
+      color: var(--accent2);
+      font-weight: 500;
+    }
   </style>
 </head>
 <body>
@@ -373,6 +404,17 @@
 <div class="card">
   <div class="card-title">Settings</div>
   <div class="controls">
+    <label>
+      Genre
+      <select id="genre">
+        <option value="all">All Genres</option>
+        <option value="melodicHouse">Melodic House</option>
+        <option value="melodicTechno">Melodic Techno</option>
+        <option value="deepHouse">Deep House</option>
+        <option value="progressiveHouse">Progressive House</option>
+      </select>
+    </label>
+
     <label>
       Root Key
       <select id="rootKey">
@@ -443,7 +485,8 @@
 
 <!-- Presets -->
 <div class="card">
-  <div class="card-title">Common Progressions</div>
+  <div class="card-title">Progressions</div>
+  <div class="genre-desc" id="genreDesc" style="display:none;"></div>
   <div class="preset-list" id="presetList"></div>
 </div>
 
@@ -451,6 +494,7 @@
 <div class="card">
   <div class="card-title">Progression</div>
   <div class="info-bar" id="infoBar" style="margin-bottom:0.85rem;">
+    <div class="badge">Genre: <span id="genreDisplay">—</span></div>
     <div class="badge">Key: <span id="keyDisplay">—</span></div>
     <div class="badge">Scale: <span id="scaleDisplay">—</span></div>
     <div class="badge">Chords: <span id="chordCount">—</span></div>
@@ -571,19 +615,74 @@ function buildChord(rootNote, degree, scaleKey, voicingType, octave) {
   };
 }
 
-// ─── Preset progressions (by degree index) ──────────────────────────────────
+// ─── Genre metadata ─────────────────────────────────────────────────────────
+
+const GENRES = {
+  all: {
+    name: 'All Genres',
+    desc: null,
+    defaults: {},
+  },
+  melodicHouse: {
+    name: 'Melodic House',
+    desc: 'Emotional, uplifting progressions with warm pads and driving beats. Often uses <strong>minor keys</strong> that resolve to major chords for that signature euphoric lift.',
+    tags: ['120–128 BPM', 'Emotional', 'Uplifting', 'Minor → Major'],
+    defaults: { scale: 'minor', tempo: 124, voicing: 'seventh', instrument: 'pad' },
+  },
+  melodicTechno: {
+    name: 'Melodic Techno',
+    desc: 'Dark, atmospheric, and hypnotic. Relies on <strong>unresolved minor progressions</strong> that create tension and space. Sparse chords let the rhythm breathe.',
+    tags: ['122–130 BPM', 'Dark', 'Hypnotic', 'Atmospheric'],
+    defaults: { scale: 'minor', tempo: 126, voicing: 'triad', instrument: 'pad' },
+  },
+  deepHouse: {
+    name: 'Deep House',
+    desc: 'Warm, soulful, and jazzy. Borrows from <strong>jazz and soul harmony</strong> — 7th chords, smooth ii–V motions, and laid-back grooves.',
+    tags: ['118–125 BPM', 'Soulful', 'Jazzy', 'Warm'],
+    defaults: { scale: 'dorian', tempo: 122, voicing: 'seventh', instrument: 'piano' },
+  },
+  progressiveHouse: {
+    name: 'Progressive House',
+    desc: 'Building, evolving, and epic. Long progressions that <strong>build tension</strong> across sections, resolving in euphoric drops and anthemic melodies.',
+    tags: ['126–132 BPM', 'Building', 'Epic', 'Anthemic'],
+    defaults: { scale: 'minor', tempo: 128, voicing: 'triad', instrument: 'pad' },
+  },
+};
+
+// ─── Preset progressions (by degree index), tagged by genre ─────────────────
 
 const PRESETS = [
-  { name: 'I–IV–V–I',       label: 'Classic',       degrees: [0,3,4,0] },
-  { name: 'I–V–vi–IV',      label: 'Pop',           degrees: [0,4,5,3] },
-  { name: 'ii–V–I',         label: 'Jazz ii–V–I',   degrees: [1,4,0] },
-  { name: 'I–vi–IV–V',      label: '50s',           degrees: [0,5,3,4] },
-  { name: 'vi–IV–I–V',      label: 'Minor Pop',     degrees: [5,3,0,4] },
-  { name: 'I–III–IV–iv',    label: 'Beatles',       degrees: [0,2,3,3] },
-  { name: 'i–VII–VI–VII',   label: 'Andalusian',    degrees: [0,6,5,6] },
-  { name: 'I–IV–I–V',       label: 'Blues',         degrees: [0,3,0,4] },
-  { name: 'ii–IV–V–I',      label: 'Extended',      degrees: [1,3,4,0] },
-  { name: 'I–V–IV–I',       label: 'Country',       degrees: [0,4,3,0] },
+  // ── Melodic House ──
+  { name: 'i–III–VII–VI',   label: 'Emotional Lift',     degrees: [0,2,6,5],    genre: 'melodicHouse' },
+  { name: 'i–IV–VII–III',   label: 'Uplifting Drive',    degrees: [0,3,6,2],    genre: 'melodicHouse' },
+  { name: 'vi–IV–I–V',      label: 'Anthemic',           degrees: [5,3,0,4],    genre: 'melodicHouse' },
+  { name: 'i–VI–III–VII',   label: 'Dreamy',             degrees: [0,5,2,6],    genre: 'melodicHouse' },
+  { name: 'i–iv–VII–III',   label: 'Melancholic',        degrees: [0,3,6,2],    genre: 'melodicHouse' },
+  { name: 'I–V–vi–IV',      label: 'Feel-Good',          degrees: [0,4,5,3],    genre: 'melodicHouse' },
+
+  // ── Melodic Techno ──
+  { name: 'i–VII–VI–VII',   label: 'Driving',            degrees: [0,6,5,6],    genre: 'melodicTechno' },
+  { name: 'i–iv–v–i',       label: 'Dark Loop',          degrees: [0,3,4,0],    genre: 'melodicTechno' },
+  { name: 'i–III–VII–VI',   label: 'Brooding',           degrees: [0,2,6,5],    genre: 'melodicTechno' },
+  { name: 'i–VI–iv–VII',    label: 'Atmospheric',        degrees: [0,5,3,6],    genre: 'melodicTechno' },
+  { name: 'i–VII–iv–III',   label: 'Tension',            degrees: [0,6,3,2],    genre: 'melodicTechno' },
+  { name: 'i–v–iv–VII',     label: 'Hypnotic',           degrees: [0,4,3,6],    genre: 'melodicTechno' },
+
+  // ── Deep House ──
+  { name: 'ii–V–I–vi',      label: 'Jazzy Groove',       degrees: [1,4,0,5],    genre: 'deepHouse' },
+  { name: 'I–vi–ii–V',      label: 'Soulful',            degrees: [0,5,1,4],    genre: 'deepHouse' },
+  { name: 'i–IV–VII–III',   label: 'Deep Groove',        degrees: [0,3,6,2],    genre: 'deepHouse' },
+  { name: 'vi–ii–V–I',      label: 'Smooth',             degrees: [5,1,4,0],    genre: 'deepHouse' },
+  { name: 'i–VII–III–VI',   label: 'Warm Minor',         degrees: [0,6,2,5],    genre: 'deepHouse' },
+  { name: 'I–III–vi–IV',    label: 'Chill',              degrees: [0,2,5,3],    genre: 'deepHouse' },
+
+  // ── Progressive House ──
+  { name: 'vi–IV–I–V',      label: 'Anthem Build',       degrees: [5,3,0,4],    genre: 'progressiveHouse' },
+  { name: 'I–V–vi–IV',      label: 'Classic Build',      degrees: [0,4,5,3],    genre: 'progressiveHouse' },
+  { name: 'i–III–VII–IV',   label: 'Progressive Rise',   degrees: [0,2,6,3],    genre: 'progressiveHouse' },
+  { name: 'i–VII–VI–V',     label: 'Dramatic',           degrees: [0,6,5,4],    genre: 'progressiveHouse' },
+  { name: 'I–IV–vi–V',      label: 'Uplifting',          degrees: [0,3,5,4],    genre: 'progressiveHouse' },
+  { name: 'vi–I–V–IV',      label: 'Euphoric',           degrees: [5,0,4,3],    genre: 'progressiveHouse' },
 ];
 
 // ─── Web Audio ───────────────────────────────────────────────────────────────
@@ -771,9 +870,17 @@ function clearHighlights() {
 function updateInfoBar() {
   const root = val('rootKey');
   const scaleKey = val('scale');
+  const genreKey = val('genre');
+  document.getElementById('genreDisplay').textContent = GENRES[genreKey].name;
   document.getElementById('keyDisplay').textContent = root;
   document.getElementById('scaleDisplay').textContent = SCALES[scaleKey].name;
   document.getElementById('chordCount').textContent = currentProgression.length || '—';
+}
+
+function getFilteredPresets() {
+  const genre = val('genre');
+  if (genre === 'all') return PRESETS;
+  return PRESETS.filter(p => p.genre === genre);
 }
 
 function setStatus(msg) {
@@ -862,23 +969,40 @@ function generateFromDegrees(degrees) {
 }
 
 function generateRandom() {
-  // Choose a sensible random progression
-  const preset = PRESETS[Math.floor(Math.random() * PRESETS.length)];
+  const filtered = getFilteredPresets();
+  const preset = filtered[Math.floor(Math.random() * filtered.length)];
   selectedPreset = null;
   document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
   generateFromDegrees(preset.degrees);
-  setStatus(`Generated: "${preset.name}" — click Play or a chord`);
+  const genreName = preset.genre ? GENRES[preset.genre].name : '';
+  setStatus(`Generated: "${preset.name}"${genreName ? ' (' + genreName + ')' : ''} — click Play or a chord`);
 }
 
 // ─── Presets ─────────────────────────────────────────────────────────────────
 
 function buildPresets() {
   const list = document.getElementById('presetList');
-  PRESETS.forEach((preset, idx) => {
+  const descEl = document.getElementById('genreDesc');
+  const genre = val('genre');
+  const filtered = getFilteredPresets();
+
+  list.innerHTML = '';
+
+  // Show genre description
+  if (genre !== 'all' && GENRES[genre].desc) {
+    const g = GENRES[genre];
+    descEl.innerHTML = g.desc +
+      '<div class="genre-tags">' + g.tags.map(t => `<span class="genre-tag">${t}</span>`).join('') + '</div>';
+    descEl.style.display = 'block';
+  } else {
+    descEl.style.display = 'none';
+  }
+
+  filtered.forEach((preset, idx) => {
     const chip = document.createElement('div');
     chip.className = 'preset-chip';
     chip.textContent = preset.name;
-    chip.title = preset.label;
+    chip.title = preset.label + (preset.genre ? ' — ' + GENRES[preset.genre].name : '');
     chip.addEventListener('click', () => {
       stopPlayback();
       document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
@@ -890,6 +1014,18 @@ function buildPresets() {
   });
 }
 
+function applyGenreDefaults(genre) {
+  if (genre === 'all') return;
+  const d = GENRES[genre].defaults;
+  if (d.scale)      document.getElementById('scale').value      = d.scale;
+  if (d.voicing)    document.getElementById('voicing').value     = d.voicing;
+  if (d.instrument) document.getElementById('instrument').value  = d.instrument;
+  if (d.tempo) {
+    document.getElementById('tempo').value = d.tempo;
+    document.getElementById('tempoVal').textContent = d.tempo;
+  }
+}
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 
 buildPiano();
@@ -897,6 +1033,15 @@ buildPresets();
 
 document.getElementById('tempo').addEventListener('input', e => {
   document.getElementById('tempoVal').textContent = e.target.value;
+});
+
+// Genre change: rebuild presets, apply genre defaults, auto-generate
+document.getElementById('genre').addEventListener('change', () => {
+  stopPlayback();
+  const genre = val('genre');
+  applyGenreDefaults(genre);
+  buildPresets();
+  generateRandom();
 });
 
 document.getElementById('btnGenerate').addEventListener('click', () => {
@@ -909,11 +1054,14 @@ document.getElementById('btnStop').addEventListener('click', stopPlayback);
 
 document.getElementById('btnShuffle').addEventListener('click', () => {
   stopPlayback();
-  // Pick random key and scale
-  const keys  = NOTE_NAMES;
-  const scaleIds = Object.keys(SCALES);
+  // Pick random key — keep genre-appropriate scale
+  const keys = NOTE_NAMES;
   document.getElementById('rootKey').value = keys[Math.floor(Math.random() * keys.length)];
-  document.getElementById('scale').value   = scaleIds[Math.floor(Math.random() * scaleIds.length)];
+  const genre = val('genre');
+  if (genre === 'all') {
+    const scaleIds = Object.keys(SCALES);
+    document.getElementById('scale').value = scaleIds[Math.floor(Math.random() * scaleIds.length)];
+  }
   generateRandom();
 });
 
