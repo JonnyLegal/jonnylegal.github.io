@@ -531,10 +531,18 @@
       Length
       <select id="progLength">
         <option value="4" selected>4 bars</option>
-        <option value="5">5 bars</option>
-        <option value="6">6 bars</option>
-        <option value="7">7 bars</option>
         <option value="8">8 bars</option>
+      </select>
+    </label>
+
+    <label>
+      Groove
+      <select id="groove">
+        <option value="straight">Straight</option>
+        <option value="stab">Stab</option>
+        <option value="halfBar">Half Bar</option>
+        <option value="offbeat">Offbeat</option>
+        <option value="pump">Pump</option>
       </select>
     </label>
   </div>
@@ -757,37 +765,57 @@ const GENRES = {
 // ─── Preset progressions (by degree index), tagged by genre ─────────────────
 
 const PRESETS = [
-  // ── Melodic House ──
-  { name: 'i–III–VII–VI',   label: 'Emotional Lift',     degrees: [0,2,6,5],    genre: 'melodicHouse' },
-  { name: 'i–IV–VII–III',   label: 'Uplifting Drive',    degrees: [0,3,6,2],    genre: 'melodicHouse' },
-  { name: 'vi–IV–I–V',      label: 'Anthemic',           degrees: [5,3,0,4],    genre: 'melodicHouse' },
-  { name: 'i–VI–III–VII',   label: 'Dreamy',             degrees: [0,5,2,6],    genre: 'melodicHouse' },
-  { name: 'i–iv–VII–III',   label: 'Melancholic',        degrees: [0,3,6,2],    genre: 'melodicHouse' },
-  { name: 'I–V–vi–IV',      label: 'Feel-Good',          degrees: [0,4,5,3],    genre: 'melodicHouse' },
+  // ── Melodic House — 4 bar ──
+  { name: 'i–III–VII–VI',   label: 'Emotional Lift',     degrees: [0,2,6,5],    genre: 'melodicHouse',      bars: 4 },
+  { name: 'i–IV–VII–III',   label: 'Uplifting Drive',    degrees: [0,3,6,2],    genre: 'melodicHouse',      bars: 4 },
+  { name: 'vi–IV–I–V',      label: 'Anthemic',           degrees: [5,3,0,4],    genre: 'melodicHouse',      bars: 4 },
+  { name: 'i–VI–III–VII',   label: 'Dreamy',             degrees: [0,5,2,6],    genre: 'melodicHouse',      bars: 4 },
+  { name: 'i–iv–VII–III',   label: 'Melancholic',        degrees: [0,3,6,2],    genre: 'melodicHouse',      bars: 4 },
+  { name: 'I–V–vi–IV',      label: 'Feel-Good',          degrees: [0,4,5,3],    genre: 'melodicHouse',      bars: 4 },
 
-  // ── Melodic Techno ──
-  { name: 'i–VII–VI–VII',   label: 'Driving',            degrees: [0,6,5,6],    genre: 'melodicTechno' },
-  { name: 'i–iv–v–i',       label: 'Dark Loop',          degrees: [0,3,4,0],    genre: 'melodicTechno' },
-  { name: 'i–III–VII–VI',   label: 'Brooding',           degrees: [0,2,6,5],    genre: 'melodicTechno' },
-  { name: 'i–VI–iv–VII',    label: 'Atmospheric',        degrees: [0,5,3,6],    genre: 'melodicTechno' },
-  { name: 'i–VII–iv–III',   label: 'Tension',            degrees: [0,6,3,2],    genre: 'melodicTechno' },
-  { name: 'i–v–iv–VII',     label: 'Hypnotic',           degrees: [0,4,3,6],    genre: 'melodicTechno' },
+  // ── Melodic House — 8 bar ──
+  { name: 'i–III–VII–VI–iv–VI–III–I',    label: 'Sunrise Journey',   degrees: [0,2,6,5,3,5,2,0],   genre: 'melodicHouse',      bars: 8 },
+  { name: 'vi–IV–I–V–ii–IV–I–V',        label: 'Heartbeat',         degrees: [5,3,0,4,1,3,0,4],   genre: 'melodicHouse',      bars: 8 },
+  { name: 'i–VI–IV–VII–III–VI–I–V',     label: 'Lost & Found',      degrees: [0,5,3,6,2,5,0,4],   genre: 'melodicHouse',      bars: 8 },
 
-  // ── Deep House ──
-  { name: 'ii–V–I–vi',      label: 'Jazzy Groove',       degrees: [1,4,0,5],    genre: 'deepHouse' },
-  { name: 'I–vi–ii–V',      label: 'Soulful',            degrees: [0,5,1,4],    genre: 'deepHouse' },
-  { name: 'i–IV–VII–III',   label: 'Deep Groove',        degrees: [0,3,6,2],    genre: 'deepHouse' },
-  { name: 'vi–ii–V–I',      label: 'Smooth',             degrees: [5,1,4,0],    genre: 'deepHouse' },
-  { name: 'i–VII–III–VI',   label: 'Warm Minor',         degrees: [0,6,2,5],    genre: 'deepHouse' },
-  { name: 'I–III–vi–IV',    label: 'Chill',              degrees: [0,2,5,3],    genre: 'deepHouse' },
+  // ── Melodic Techno — 4 bar ──
+  { name: 'i–VII–VI–VII',   label: 'Driving',            degrees: [0,6,5,6],    genre: 'melodicTechno',     bars: 4 },
+  { name: 'i–iv–v–i',       label: 'Dark Loop',          degrees: [0,3,4,0],    genre: 'melodicTechno',     bars: 4 },
+  { name: 'i–III–VII–VI',   label: 'Brooding',           degrees: [0,2,6,5],    genre: 'melodicTechno',     bars: 4 },
+  { name: 'i–VI–iv–VII',    label: 'Atmospheric',        degrees: [0,5,3,6],    genre: 'melodicTechno',     bars: 4 },
+  { name: 'i–VII–iv–III',   label: 'Tension',            degrees: [0,6,3,2],    genre: 'melodicTechno',     bars: 4 },
+  { name: 'i–v–iv–VII',     label: 'Hypnotic',           degrees: [0,4,3,6],    genre: 'melodicTechno',     bars: 4 },
 
-  // ── Progressive House ──
-  { name: 'vi–IV–I–V',      label: 'Anthem Build',       degrees: [5,3,0,4],    genre: 'progressiveHouse' },
-  { name: 'I–V–vi–IV',      label: 'Classic Build',      degrees: [0,4,5,3],    genre: 'progressiveHouse' },
-  { name: 'i–III–VII–IV',   label: 'Progressive Rise',   degrees: [0,2,6,3],    genre: 'progressiveHouse' },
-  { name: 'i–VII–VI–V',     label: 'Dramatic',           degrees: [0,6,5,4],    genre: 'progressiveHouse' },
-  { name: 'I–IV–vi–V',      label: 'Uplifting',          degrees: [0,3,5,4],    genre: 'progressiveHouse' },
-  { name: 'vi–I–V–IV',      label: 'Euphoric',           degrees: [5,0,4,3],    genre: 'progressiveHouse' },
+  // ── Melodic Techno — 8 bar ──
+  { name: 'i–VII–iv–VII–i–VI–iv–VII',   label: 'Void Walker',       degrees: [0,6,3,6,0,5,3,6],   genre: 'melodicTechno',     bars: 8 },
+  { name: 'i–iv–v–i–III–VII–VI–VII',    label: 'Static Mind',       degrees: [0,3,4,0,2,6,5,6],   genre: 'melodicTechno',     bars: 8 },
+  { name: 'i–VII–VI–iv–III–VII–VI–i',   label: 'The Current',       degrees: [0,6,5,3,2,6,5,0],   genre: 'melodicTechno',     bars: 8 },
+
+  // ── Deep House — 4 bar ──
+  { name: 'ii–V–I–vi',      label: 'Jazzy Groove',       degrees: [1,4,0,5],    genre: 'deepHouse',         bars: 4 },
+  { name: 'I–vi–ii–V',      label: 'Soulful',            degrees: [0,5,1,4],    genre: 'deepHouse',         bars: 4 },
+  { name: 'i–IV–VII–III',   label: 'Deep Groove',        degrees: [0,3,6,2],    genre: 'deepHouse',         bars: 4 },
+  { name: 'vi–ii–V–I',      label: 'Smooth',             degrees: [5,1,4,0],    genre: 'deepHouse',         bars: 4 },
+  { name: 'i–VII–III–VI',   label: 'Warm Minor',         degrees: [0,6,2,5],    genre: 'deepHouse',         bars: 4 },
+  { name: 'I–III–vi–IV',    label: 'Chill',              degrees: [0,2,5,3],    genre: 'deepHouse',         bars: 4 },
+
+  // ── Deep House — 8 bar ──
+  { name: 'ii–V–I–vi–ii–IV–iii–VI',     label: 'After Dark',        degrees: [1,4,0,5,1,3,2,5],   genre: 'deepHouse',         bars: 8 },
+  { name: 'I–vi–ii–V–I–IV–ii–V',        label: 'Soul Circuit',      degrees: [0,5,1,4,0,3,1,4],   genre: 'deepHouse',         bars: 8 },
+  { name: 'i–IV–VII–III–VI–III–VII–III', label: '3am Groove',       degrees: [0,3,6,2,5,2,6,2],   genre: 'deepHouse',         bars: 8 },
+
+  // ── Progressive House — 4 bar ──
+  { name: 'vi–IV–I–V',      label: 'Anthem Build',       degrees: [5,3,0,4],    genre: 'progressiveHouse',  bars: 4 },
+  { name: 'I–V–vi–IV',      label: 'Classic Build',      degrees: [0,4,5,3],    genre: 'progressiveHouse',  bars: 4 },
+  { name: 'i–III–VII–IV',   label: 'Progressive Rise',   degrees: [0,2,6,3],    genre: 'progressiveHouse',  bars: 4 },
+  { name: 'i–VII–VI–V',     label: 'Dramatic',           degrees: [0,6,5,4],    genre: 'progressiveHouse',  bars: 4 },
+  { name: 'I–IV–vi–V',      label: 'Uplifting',          degrees: [0,3,5,4],    genre: 'progressiveHouse',  bars: 4 },
+  { name: 'vi–I–V–IV',      label: 'Euphoric',           degrees: [5,0,4,3],    genre: 'progressiveHouse',  bars: 4 },
+
+  // ── Progressive House — 8 bar ──
+  { name: 'vi–IV–I–V–vi–II–IV–I',       label: 'Stratosphere',      degrees: [5,3,0,4,5,1,3,0],   genre: 'progressiveHouse',  bars: 8 },
+  { name: 'i–III–VII–IV–VI–IV–I–V',     label: 'Ignition',          degrees: [0,2,6,3,5,3,0,4],   genre: 'progressiveHouse',  bars: 8 },
+  { name: 'I–V–vi–IV–I–V–II–IV',        label: 'Overture',          degrees: [0,4,5,3,0,4,1,3],   genre: 'progressiveHouse',  bars: 8 },
 ];
 
 // ─── Web Audio ───────────────────────────────────────────────────────────────
@@ -1034,6 +1062,38 @@ function playChordSound(pitches, instrument, duration, startTime) {
   }
 }
 
+// ─── Grooves ─────────────────────────────────────────────────────────────────
+// Each groove defines one or more sound slots per bar.
+// slot: { t: startOffsetWithinBar (seconds), dur: playDuration (seconds) }
+
+const GROOVES = {
+  straight: {
+    name: 'Straight',
+    slots(barDur)      { return [{ t: 0, dur: barDur * 0.98 }]; },
+  },
+  stab: {
+    name: 'Stab',
+    slots(barDur)      { return [{ t: 0, dur: barDur * 0.18 }]; },
+  },
+  halfBar: {
+    name: 'Half Bar',
+    slots(barDur)      { return [{ t: 0, dur: barDur * 0.46 }]; },
+  },
+  offbeat: {
+    name: 'Offbeat',
+    // chord enters on beat 2 — creates a syncopated push feel
+    slots(barDur)      { return [{ t: barDur * 0.25, dur: barDur * 0.70 }]; },
+  },
+  pump: {
+    name: 'Pump',
+    // two hits per bar: beat 1 and beat 3
+    slots(barDur)      {
+      const h = barDur * 0.5;
+      return [{ t: 0, dur: h * 0.84 }, { t: h, dur: h * 0.84 }];
+    },
+  },
+};
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 let currentProgression = [];
@@ -1135,8 +1195,8 @@ function updateInfoBar() {
 
 function getFilteredPresets() {
   const genre = val('genre');
-  if (genre === 'all') return PRESETS;
-  return PRESETS.filter(p => p.genre === genre);
+  const bars  = parseInt(val('progLength'), 10);
+  return PRESETS.filter(p => (genre === 'all' || p.genre === genre) && p.bars === bars);
 }
 
 function setStatus(msg) {
@@ -1166,29 +1226,31 @@ function playProgression() {
   document.getElementById('btnPlay').disabled = true;
   document.getElementById('btnStop').disabled = false;
 
-  const bpm   = parseInt(val('tempo'), 10);
-  const beats = 4; // bars per chord
+  const bpm        = parseInt(val('tempo'), 10);
   const secPerBeat = 60 / bpm;
-  const chordDur   = secPerBeat * beats;
-  const totalDur   = chordDur * currentProgression.length;
+  const barDur     = secPerBeat * 4;          // one bar = 4 beats
+  const totalDur   = barDur * currentProgression.length;
   const instrument = val('instrument');
-  const ctx = getCtx();
+  const groove     = GROOVES[val('groove')] || GROOVES.straight;
+  const ctx        = getCtx();
 
   currentProgression.forEach((chord, idx) => {
-    const delay = idx * chordDur * 1000;
-    const startTime = ctx.currentTime + idx * chordDur;
+    const barStart = idx * barDur;
 
-    // Schedule audio ahead
-    playChordSound(chord.pitches, instrument, chordDur - 0.05, startTime);
+    // Schedule each groove slot for this chord
+    groove.slots(barDur, idx).forEach(slot => {
+      const audioStart = ctx.currentTime + barStart + slot.t;
+      playChordSound(chord.pitches, instrument, slot.dur, audioStart);
+    });
 
-    // Schedule UI updates
+    // UI highlight fires at bar start
     const t = setTimeout(() => {
       highlightCard(idx);
       lightPiano(chord.noteNames, chord.chordRootName);
       setStatus(`Playing: ${chord.chordRootName}${chord.quality} (${chord.label})`);
-      const pct = ((idx + 1) / currentProgression.length) * 100;
-      document.getElementById('progressFill').style.width = pct + '%';
-    }, delay);
+      document.getElementById('progressFill').style.width =
+        (((idx + 1) / currentProgression.length) * 100) + '%';
+    }, barStart * 1000);
     playbackTimeouts.push(t);
   });
 
@@ -1201,7 +1263,7 @@ function playProgression() {
     document.getElementById('btnPlay').disabled = false;
     document.getElementById('btnStop').disabled = true;
     setStatus('Playback complete');
-  }, totalDur * 1000 + 400);
+  }, totalDur * 1000 + 500);
   playbackTimeouts.push(endT);
 }
 
@@ -1284,26 +1346,15 @@ function voiceLeadProgression(chords) {
 
 // ─── Generation ───────────────────────────────────────────────────────────────
 
-function extendDegrees(degrees, targetLen) {
-  if (degrees.length >= targetLen) return degrees.slice(0, targetLen);
-  const out = [];
-  for (let i = 0; i < targetLen; i++) out.push(degrees[i % degrees.length]);
-  return out;
-}
-
 function generateFromDegrees(degrees) {
   const root    = val('rootKey');
   const scaleKey = val('scale');
   const voicing = val('voicing');
   const octave  = val('octave');
-  const length  = parseInt(val('progLength'), 10);
-
-  // Extend or trim the pattern to match the requested length
-  const sized = extendDegrees(degrees, length);
 
   // Clamp degrees to valid scale range
   const maxDegree = SCALES[scaleKey].steps.length - 1;
-  const validDegrees = sized.map(d => Math.min(d, maxDegree));
+  const validDegrees = degrees.map(d => Math.min(d, maxDegree));
 
   const rawChords = validDegrees.map(d => buildChord(root, d, scaleKey, voicing, octave));
   currentProgression = voiceLeadProgression(rawChords);
@@ -1421,13 +1472,11 @@ document.getElementById('btnShuffle').addEventListener('click', () => {
   });
 });
 
-// Length change: re-generate with new length
+// Length change: rebuild preset list (different bar presets) and re-generate
 document.getElementById('progLength').addEventListener('change', () => {
-  if (currentProgression.length) {
-    stopPlayback();
-    const degrees = currentProgression.map(c => c.degree);
-    generateFromDegrees(degrees);
-  }
+  stopPlayback();
+  buildPresets();
+  generateRandom();
 });
 
 // ─── Effects controls ─────────────────────────────────────────────────────────
