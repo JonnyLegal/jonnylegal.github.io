@@ -474,10 +474,12 @@
     <label>
       Instrument
       <select id="instrument">
-        <option value="piano">Piano</option>
-        <option value="guitar">Guitar</option>
-        <option value="pad">Synth Pad</option>
-        <option value="organ">Organ</option>
+        <option value="pluckBright">Pluck — Bright</option>
+        <option value="pluckMuted">Pluck — Muted</option>
+        <option value="padWarm" selected>Pad — Warm</option>
+        <option value="padLush">Pad — Lush</option>
+        <option value="keysElectric">Keys — Electric</option>
+        <option value="keysBell">Keys — Bell</option>
       </select>
     </label>
   </div>
@@ -627,25 +629,25 @@ const GENRES = {
     name: 'Melodic House',
     desc: 'Emotional, uplifting progressions with warm pads and driving beats. Often uses <strong>minor keys</strong> that resolve to major chords for that signature euphoric lift.',
     tags: ['120–128 BPM', 'Emotional', 'Uplifting', 'Minor → Major'],
-    defaults: { scale: 'minor', tempo: 124, voicing: 'seventh', instrument: 'pad' },
+    defaults: { scale: 'minor', tempo: 124, voicing: 'seventh', instrument: 'padLush' },
   },
   melodicTechno: {
     name: 'Melodic Techno',
     desc: 'Dark, atmospheric, and hypnotic. Relies on <strong>unresolved minor progressions</strong> that create tension and space. Sparse chords let the rhythm breathe.',
     tags: ['122–130 BPM', 'Dark', 'Hypnotic', 'Atmospheric'],
-    defaults: { scale: 'minor', tempo: 126, voicing: 'triad', instrument: 'pad' },
+    defaults: { scale: 'minor', tempo: 126, voicing: 'triad', instrument: 'padWarm' },
   },
   deepHouse: {
     name: 'Deep House',
     desc: 'Warm, soulful, and jazzy. Borrows from <strong>jazz and soul harmony</strong> — 7th chords, smooth ii–V motions, and laid-back grooves.',
     tags: ['118–125 BPM', 'Soulful', 'Jazzy', 'Warm'],
-    defaults: { scale: 'dorian', tempo: 122, voicing: 'seventh', instrument: 'piano' },
+    defaults: { scale: 'dorian', tempo: 122, voicing: 'seventh', instrument: 'keysElectric' },
   },
   progressiveHouse: {
     name: 'Progressive House',
     desc: 'Building, evolving, and epic. Long progressions that <strong>build tension</strong> across sections, resolving in euphoric drops and anthemic melodies.',
     tags: ['126–132 BPM', 'Building', 'Epic', 'Anthemic'],
-    defaults: { scale: 'minor', tempo: 128, voicing: 'triad', instrument: 'pad' },
+    defaults: { scale: 'minor', tempo: 128, voicing: 'triad', instrument: 'padLush' },
   },
 };
 
@@ -699,83 +701,169 @@ function midiToFreq(midi) {
   return 440 * Math.pow(2, (midi - 57) / 12);
 }
 
-function makeOscillator(ctx, freq, type, gain) {
-  const osc = ctx.createOscillator();
-  const g   = ctx.createGain();
-  osc.type = type;
-  osc.frequency.value = freq;
-  g.gain.value = gain;
-  osc.connect(g);
-  return { osc, g };
-}
-
 function playChordSound(pitches, instrument, duration, startTime) {
   const ctx = getCtx();
-  const master = ctx.createGain();
-  master.connect(ctx.destination);
-
   const now = startTime || ctx.currentTime;
 
-  const configs = {
-    piano: {
-      oscs: [
-        { type: 'triangle', gain: 0.28 },
-        { type: 'sine',     gain: 0.12 },
-      ],
-      attack: 0.01, decay: 0.3, sustain: 0.55, release: 0.5,
-    },
-    guitar: {
-      oscs: [
-        { type: 'sawtooth', gain: 0.12 },
-        { type: 'triangle', gain: 0.10 },
-      ],
-      attack: 0.005, decay: 0.15, sustain: 0.4, release: 0.6,
-    },
-    pad: {
-      oscs: [
-        { type: 'sine',     gain: 0.22 },
-        { type: 'triangle', gain: 0.15 },
-        { type: 'sine',     gain: 0.08 },
-      ],
-      attack: 0.25, decay: 0.2, sustain: 0.7, release: 1.2,
-    },
-    organ: {
-      oscs: [
-        { type: 'sine',     gain: 0.25 },
-        { type: 'sine',     gain: 0.15 }, // 2nd harmonic
-        { type: 'sine',     gain: 0.08 }, // 3rd harmonic
-      ],
-      attack: 0.02, decay: 0.05, sustain: 0.9, release: 0.15,
-    },
-  };
-
-  const cfg = configs[instrument] || configs.piano;
-
-  pitches.forEach((midi, noteIdx) => {
-    cfg.oscs.forEach((oscCfg, oscIdx) => {
-      const freq = midiToFreq(midi) * (instrument === 'organ' ? (oscIdx + 1) : 1);
-      const { osc, g } = makeOscillator(ctx, freq, oscCfg.type, 0);
-
-      // stagger guitar notes slightly for a strummed effect
-      const strum = instrument === 'guitar' ? noteIdx * 0.04 : 0;
-
-      g.connect(master);
-      osc.start(now + strum);
-
-      // ADSR envelope
-      g.gain.setValueAtTime(0, now + strum);
-      g.gain.linearRampToValueAtTime(oscCfg.gain, now + strum + cfg.attack);
-      g.gain.exponentialRampToValueAtTime(oscCfg.gain * cfg.sustain, now + strum + cfg.attack + cfg.decay);
-      g.gain.setValueAtTime(oscCfg.gain * cfg.sustain, now + strum + duration - cfg.release);
-      g.gain.linearRampToValueAtTime(0.0001, now + strum + duration);
-
-      osc.stop(now + strum + duration + 0.05);
-    });
-  });
-
-  // fade master out
+  // Master bus with overall fade-out
+  const master = ctx.createGain();
+  master.connect(ctx.destination);
   master.gain.setValueAtTime(1, now);
-  master.gain.linearRampToValueAtTime(0.0001, now + duration + 0.15);
+  master.gain.linearRampToValueAtTime(0.0001, now + duration + 0.25);
+
+  // Helpers
+  function mkOsc(type, freq, detuneCents) {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = freq * (detuneCents ? Math.pow(2, detuneCents / 1200) : 1);
+    return o;
+  }
+  function mkGain() { const g = ctx.createGain(); g.gain.value = 0; return g; }
+  function env(g, atk, dec, susLevel, rel, peak, t, dur) {
+    const s = Math.max(peak * susLevel, 0.0001);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(peak, t + atk);
+    g.gain.exponentialRampToValueAtTime(s, t + atk + dec);
+    g.gain.setValueAtTime(s, t + Math.max(dur - rel, t + atk + dec + 0.01));
+    g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  }
+  function launch(osc, g, dest, t, stop) {
+    osc.connect(g); g.connect(dest);
+    osc.start(t); osc.stop(stop);
+  }
+
+  // ── Pluck — Bright ────────────────────────────────────────────────────────
+  if (instrument === 'pluckBright') {
+    pitches.forEach((midi, i) => {
+      const freq = midiToFreq(midi);
+      const t = now + i * 0.022;
+      const end = t + 0.65;
+
+      // Fundamental: triangle
+      const o1 = mkOsc('triangle', freq); const g1 = mkGain();
+      env(g1, 0.002, 0.55, 0, 0.06, 0.30, t, 0.62);
+      launch(o1, g1, master, t, end);
+
+      // Octave sparkle: sine 2x freq, faster decay
+      const o2 = mkOsc('sine', freq * 2); const g2 = mkGain();
+      env(g2, 0.001, 0.20, 0, 0.02, 0.12, t, 0.22);
+      launch(o2, g2, master, t, t + 0.25);
+    });
+
+  // ── Pluck — Muted ─────────────────────────────────────────────────────────
+  } else if (instrument === 'pluckMuted') {
+    pitches.forEach((midi, i) => {
+      const freq = midiToFreq(midi);
+      const t = now + i * 0.038;
+      const end = t + 0.90;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(freq * 5, t);
+      filter.frequency.exponentialRampToValueAtTime(freq * 1.8, t + 0.35);
+      filter.Q.value = 1.2;
+      filter.connect(master);
+
+      const o1 = mkOsc('triangle', freq);      const g1 = mkGain();
+      env(g1, 0.004, 0.75, 0, 0.06, 0.35, t, 0.85);
+      o1.connect(g1); g1.connect(filter);
+      o1.start(t); o1.stop(end);
+
+      // Slight body: detuned sine
+      const o2 = mkOsc('sine', freq, 8);            const g2 = mkGain();
+      env(g2, 0.004, 0.45, 0, 0.05, 0.12, t, 0.50);
+      o2.connect(g2); g2.connect(filter);
+      o2.start(t); o2.stop(t + 0.55);
+    });
+
+  // ── Pad — Warm ────────────────────────────────────────────────────────────
+  } else if (instrument === 'padWarm') {
+    pitches.forEach(midi => {
+      const freq = midiToFreq(midi);
+
+      // Two slightly detuned sines (chorus-like)
+      [[-6, 0.15], [6, 0.15]].forEach(([cents, pk]) => {
+        const o = mkOsc('sine', freq, cents); const g = mkGain();
+        env(g, 0.35, 0.20, 0.78, 0.85, pk, now, duration);
+        launch(o, g, master, now, now + duration + 0.1);
+      });
+
+      // Sub octave for warmth
+      const osub = mkOsc('sine', freq * 0.5); const gsub = mkGain();
+      env(gsub, 0.40, 0.25, 0.55, 1.0, 0.07, now, duration);
+      launch(osub, gsub, master, now, now + duration + 0.1);
+    });
+
+  // ── Pad — Lush ────────────────────────────────────────────────────────────
+  } else if (instrument === 'padLush') {
+    pitches.forEach(midi => {
+      const freq = midiToFreq(midi);
+
+      // Three detuned oscillators with different timbres
+      [[-12, 'sine', 0.11], [0, 'triangle', 0.13], [12, 'sine', 0.11]].forEach(([cents, type, pk]) => {
+        const o = mkOsc(type, freq, cents); const g = mkGain();
+        env(g, 0.58, 0.30, 0.68, 1.25, pk, now, duration);
+
+        // Slow LFO tremolo on each voice
+        const lfo = ctx.createOscillator();
+        const lfoGain = ctx.createGain();
+        lfo.type = 'sine';
+        lfo.frequency.value = 0.38;
+        lfoGain.gain.value = pk * 0.07;
+        lfo.connect(lfoGain);
+        lfoGain.connect(g.gain);
+        lfo.start(now); lfo.stop(now + duration + 0.2);
+
+        launch(o, g, master, now, now + duration + 0.2);
+      });
+
+      // Subtle high shimmer
+      const oshi = mkOsc('sine', freq * 2, 5); const gshi = mkGain();
+      env(gshi, 0.65, 0.25, 0.40, 1.3, 0.04, now, duration);
+      launch(oshi, gshi, master, now, now + duration + 0.2);
+    });
+
+  // ── Keys — Electric ───────────────────────────────────────────────────────
+  } else if (instrument === 'keysElectric') {
+    pitches.forEach(midi => {
+      const freq = midiToFreq(midi);
+
+      // Body: triangle (the sustained tone)
+      const o1 = mkOsc('triangle', freq);  const g1 = mkGain();
+      env(g1, 0.010, 0.22, 0.42, 0.40, 0.24, now, duration);
+      launch(o1, g1, master, now, now + duration + 0.05);
+
+      // Slight detune for warmth
+      const o1b = mkOsc('triangle', freq, -5); const g1b = mkGain();
+      env(g1b, 0.012, 0.20, 0.35, 0.40, 0.08, now, duration);
+      launch(o1b, g1b, master, now, now + duration + 0.05);
+
+      // Attack transient: higher partial (EP "tine" click)
+      const o2 = mkOsc('sine', freq * 4.97); const g2 = mkGain();
+      env(g2, 0.003, 0.14, 0, 0.01, 0.16, now, 0.16);
+      launch(o2, g2, master, now, now + 0.18);
+    });
+
+  // ── Keys — Bell ───────────────────────────────────────────────────────────
+  } else if (instrument === 'keysBell') {
+    pitches.forEach(midi => {
+      const freq = midiToFreq(midi);
+
+      // Inharmonic partials characteristic of bells/metallophones
+      [
+        [1.000, 0.30, 1.60],
+        [2.756, 0.14, 0.95],
+        [5.404, 0.07, 0.55],
+        [8.933, 0.03, 0.30],
+      ].forEach(([mult, peak, decay]) => {
+        const o = mkOsc('sine', freq * mult); const g = mkGain();
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.linearRampToValueAtTime(peak, now + 0.002);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+        launch(o, g, master, now, now + decay + 0.05);
+      });
+    });
+  }
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -949,6 +1037,83 @@ function playProgression() {
   playbackTimeouts.push(endT);
 }
 
+// ─── Voice Leading ────────────────────────────────────────────────────────────
+// Chooses the inversion of each chord that minimises movement from the
+// previous chord, keeping all notes within a comfortable keyboard range.
+
+function voiceLeadProgression(chords) {
+  if (!chords.length) return chords;
+
+  const MIN = 36;  // C3 in our MIDI system
+  const MAX = 78;  // F#6 — hard ceiling
+
+  // All valid inversions of a pitch set, across octave shifts
+  function allInversions(pitches) {
+    const sorted = [...pitches].sort((a, b) => a - b);
+    const n = sorted.length;
+    const out = [];
+    for (let inv = 0; inv < n; inv++) {
+      const base = [
+        ...sorted.slice(inv),
+        ...sorted.slice(0, inv).map(p => p + 12),
+      ];
+      for (let shift = -2; shift <= 2; shift++) {
+        const cand = base.map(p => p + shift * 12);
+        if (cand[0] >= MIN && cand[cand.length - 1] <= MAX) out.push(cand);
+      }
+    }
+    return out.length ? out : [sorted]; // fallback: root position
+  }
+
+  // Score a candidate voicing: minimise voice movement + drift from target
+  function scoreVoicing(cand, prev, target) {
+    const center = cand.reduce((s, p) => s + p, 0) / cand.length;
+    // Sum of each note's distance to the nearest note in the previous chord
+    const movement = cand.reduce((s, p) => {
+      const closest = Math.min(...prev.map(pp => Math.abs(p - pp)));
+      return s + closest;
+    }, 0);
+    const drift    = Math.abs(center - target) * 0.7;
+    const spread   = cand[cand.length - 1] - cand[0];
+    const widePen  = Math.max(0, spread - 15) * 0.5;
+    return movement + drift + widePen;
+  }
+
+  // Anchor target: center of the first chord in its current (root) position
+  const firstCenter = chords[0].pitches.reduce((s, p) => s + p, 0) / chords[0].pitches.length;
+  const TARGET = Math.max(MIN + 8, Math.min(MAX - 8, firstCenter));
+
+  // Pick first chord inversion closest to the target center
+  const firstInvs = allInversions(chords[0].pitches);
+  const firstBest = firstInvs.reduce((best, cand) => {
+    const c = cand.reduce((s, p) => s + p, 0) / cand.length;
+    const b = best.reduce((s, p) => s + p, 0) / best.length;
+    return Math.abs(c - TARGET) < Math.abs(b - TARGET) ? cand : best;
+  });
+
+  const result = [{
+    ...chords[0],
+    pitches: firstBest,
+    noteNames: firstBest.map(p => NOTE_NAMES[((p % 12) + 12) % 12]),
+  }];
+
+  for (let i = 1; i < chords.length; i++) {
+    const invs = allInversions(chords[i].pitches);
+    const prev = result[i - 1].pitches;
+    let best = invs[0]; let bestScore = Infinity;
+    for (const cand of invs) {
+      const s = scoreVoicing(cand, prev, TARGET);
+      if (s < bestScore) { bestScore = s; best = cand; }
+    }
+    result.push({
+      ...chords[i],
+      pitches: best,
+      noteNames: best.map(p => NOTE_NAMES[((p % 12) + 12) % 12]),
+    });
+  }
+  return result;
+}
+
 // ─── Generation ───────────────────────────────────────────────────────────────
 
 function generateFromDegrees(degrees) {
@@ -961,7 +1126,8 @@ function generateFromDegrees(degrees) {
   const maxDegree = SCALES[scaleKey].steps.length - 1;
   const validDegrees = degrees.map(d => Math.min(d, maxDegree));
 
-  currentProgression = validDegrees.map(d => buildChord(root, d, scaleKey, voicing, octave));
+  const rawChords = validDegrees.map(d => buildChord(root, d, scaleKey, voicing, octave));
+  currentProgression = voiceLeadProgression(rawChords);
   renderChordCards(currentProgression);
   updateInfoBar();
   document.getElementById('btnPlay').disabled = false;
