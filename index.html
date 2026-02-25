@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chord Progression Generator</title>
+  <title>DJ Legal's Chord Machine</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -393,11 +393,55 @@
       color: var(--accent2);
       font-weight: 500;
     }
+
+    /* Effects */
+    .fx-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
+    @media (max-width: 520px) {
+      .fx-grid { grid-template-columns: 1fr; }
+    }
+
+    .fx-section-title {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent2);
+      margin-bottom: 0.65rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .fx-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .fx-row label {
+      flex-direction: row;
+      align-items: center;
+      gap: 0;
+      font-size: 0.75rem;
+    }
+
+    .fx-row .range-row {
+      width: 100%;
+    }
+
+    .fx-row .range-row input[type="range"] {
+      flex: 1;
+    }
   </style>
 </head>
 <body>
 
-<h1>Chord Progression Generator</h1>
+<h1>DJ Legal's Chord Machine</h1>
 <p class="subtitle">Build & preview chord progressions in any key</p>
 
 <!-- Controls -->
@@ -482,6 +526,17 @@
         <option value="keysBell">Keys — Bell</option>
       </select>
     </label>
+
+    <label>
+      Length
+      <select id="progLength">
+        <option value="4" selected>4 bars</option>
+        <option value="5">5 bars</option>
+        <option value="6">6 bars</option>
+        <option value="7">7 bars</option>
+        <option value="8">8 bars</option>
+      </select>
+    </label>
   </div>
 </div>
 
@@ -513,6 +568,54 @@
   <div class="card-title">Piano Keyboard — highlighted notes for selected chord</div>
   <div class="piano-wrap">
     <div class="piano" id="piano"></div>
+  </div>
+</div>
+
+<!-- Effects -->
+<div class="card">
+  <div class="card-title">Effects</div>
+  <div class="fx-grid">
+    <div>
+      <div class="fx-section-title">Delay</div>
+      <div class="fx-row">
+        <label>Mix</label>
+        <div class="range-row">
+          <input type="range" id="delayMix" min="0" max="100" value="0" />
+          <span class="range-val" id="delayMixVal">0%</span>
+        </div>
+      </div>
+      <div class="fx-row">
+        <label>Time</label>
+        <div class="range-row">
+          <input type="range" id="delayTime" min="50" max="800" value="300" />
+          <span class="range-val" id="delayTimeVal">300ms</span>
+        </div>
+      </div>
+      <div class="fx-row">
+        <label>Feedback</label>
+        <div class="range-row">
+          <input type="range" id="delayFeedback" min="0" max="85" value="30" />
+          <span class="range-val" id="delayFeedbackVal">30%</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="fx-section-title">Reverb</div>
+      <div class="fx-row">
+        <label>Mix</label>
+        <div class="range-row">
+          <input type="range" id="reverbMix" min="0" max="100" value="0" />
+          <span class="range-val" id="reverbMixVal">0%</span>
+        </div>
+      </div>
+      <div class="fx-row">
+        <label>Size</label>
+        <div class="range-row">
+          <input type="range" id="reverbSize" min="1" max="10" value="5" />
+          <span class="range-val" id="reverbSizeVal">5</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -701,13 +804,78 @@ function midiToFreq(midi) {
   return 440 * Math.pow(2, (midi - 57) / 12);
 }
 
+// ─── Effects Bus (persistent) ────────────────────────────────────────────────
+
+let fxBus = null, fxDry, fxDelayNode, fxDelayFb, fxDelayWet, fxConvolver, fxReverbWet;
+
+function generateIR(ctx, duration, decay) {
+  const len = Math.floor(ctx.sampleRate * duration);
+  const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+  }
+  return buf;
+}
+
+function initFxBus() {
+  const ctx = getCtx();
+  if (fxBus) return;
+
+  // Input that all sources connect to
+  fxBus = ctx.createGain();
+
+  // Dry path
+  fxDry = ctx.createGain();
+  fxDry.gain.value = 1.0;
+  fxBus.connect(fxDry);
+  fxDry.connect(ctx.destination);
+
+  // Delay path
+  fxDelayNode = ctx.createDelay(2.0);
+  fxDelayNode.delayTime.value = 0.3;
+  fxDelayFb = ctx.createGain();
+  fxDelayFb.gain.value = 0.3;
+  fxDelayWet = ctx.createGain();
+  fxDelayWet.gain.value = 0.0;
+  fxBus.connect(fxDelayNode);
+  fxDelayNode.connect(fxDelayFb);
+  fxDelayFb.connect(fxDelayNode);
+  fxDelayNode.connect(fxDelayWet);
+  fxDelayWet.connect(ctx.destination);
+
+  // Reverb path
+  fxConvolver = ctx.createConvolver();
+  fxConvolver.buffer = generateIR(ctx, 2.5, 2.2);
+  fxReverbWet = ctx.createGain();
+  fxReverbWet.gain.value = 0.0;
+  fxBus.connect(fxConvolver);
+  fxConvolver.connect(fxReverbWet);
+  fxReverbWet.connect(ctx.destination);
+}
+
+function rebuildReverbIR() {
+  const ctx = getCtx();
+  const size = parseInt(document.getElementById('reverbSize').value, 10);
+  const duration = 0.8 + size * 0.35;
+  const decay    = 3.0 - size * 0.18;
+  fxConvolver.buffer = generateIR(ctx, duration, decay);
+}
+
+function getOutputNode() {
+  initFxBus();
+  return fxBus;
+}
+
 function playChordSound(pitches, instrument, duration, startTime) {
   const ctx = getCtx();
   const now = startTime || ctx.currentTime;
 
   // Master bus with overall fade-out
   const master = ctx.createGain();
-  master.connect(ctx.destination);
+  master.connect(getOutputNode());
   master.gain.setValueAtTime(1, now);
   master.gain.linearRampToValueAtTime(0.0001, now + duration + 0.25);
 
@@ -1116,15 +1284,26 @@ function voiceLeadProgression(chords) {
 
 // ─── Generation ───────────────────────────────────────────────────────────────
 
+function extendDegrees(degrees, targetLen) {
+  if (degrees.length >= targetLen) return degrees.slice(0, targetLen);
+  const out = [];
+  for (let i = 0; i < targetLen; i++) out.push(degrees[i % degrees.length]);
+  return out;
+}
+
 function generateFromDegrees(degrees) {
   const root    = val('rootKey');
   const scaleKey = val('scale');
   const voicing = val('voicing');
   const octave  = val('octave');
+  const length  = parseInt(val('progLength'), 10);
+
+  // Extend or trim the pattern to match the requested length
+  const sized = extendDegrees(degrees, length);
 
   // Clamp degrees to valid scale range
   const maxDegree = SCALES[scaleKey].steps.length - 1;
-  const validDegrees = degrees.map(d => Math.min(d, maxDegree));
+  const validDegrees = sized.map(d => Math.min(d, maxDegree));
 
   const rawChords = validDegrees.map(d => buildChord(root, d, scaleKey, voicing, octave));
   currentProgression = voiceLeadProgression(rawChords);
@@ -1240,6 +1419,47 @@ document.getElementById('btnShuffle').addEventListener('click', () => {
       generateFromDegrees(degrees);
     }
   });
+});
+
+// Length change: re-generate with new length
+document.getElementById('progLength').addEventListener('change', () => {
+  if (currentProgression.length) {
+    stopPlayback();
+    const degrees = currentProgression.map(c => c.degree);
+    generateFromDegrees(degrees);
+  }
+});
+
+// ─── Effects controls ─────────────────────────────────────────────────────────
+
+document.getElementById('delayMix').addEventListener('input', e => {
+  document.getElementById('delayMixVal').textContent = e.target.value + '%';
+  initFxBus();
+  fxDelayWet.gain.value = e.target.value / 100;
+});
+
+document.getElementById('delayTime').addEventListener('input', e => {
+  document.getElementById('delayTimeVal').textContent = e.target.value + 'ms';
+  initFxBus();
+  fxDelayNode.delayTime.value = e.target.value / 1000;
+});
+
+document.getElementById('delayFeedback').addEventListener('input', e => {
+  document.getElementById('delayFeedbackVal').textContent = e.target.value + '%';
+  initFxBus();
+  fxDelayFb.gain.value = e.target.value / 100;
+});
+
+document.getElementById('reverbMix').addEventListener('input', e => {
+  document.getElementById('reverbMixVal').textContent = e.target.value + '%';
+  initFxBus();
+  fxReverbWet.gain.value = e.target.value / 100;
+});
+
+document.getElementById('reverbSize').addEventListener('input', e => {
+  document.getElementById('reverbSizeVal').textContent = e.target.value;
+  initFxBus();
+  rebuildReverbIR();
 });
 
 // Initial generation
